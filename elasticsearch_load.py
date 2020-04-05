@@ -6,7 +6,7 @@ import re
 import sys
 import os
 import requests
-from elasticsearch import Elasticsearch
+from elasticsearch import Elasticsearch, helpers
 # try:
 #     # for Python 3.0 and later
 from urllib.request import urlopen
@@ -18,32 +18,28 @@ from urllib.request import urlopen
 # sentences and issues bulk insert commands to an Elasticsearch server running
 # on localhost.
 es = Elasticsearch()
-
+tot = 1
 def sentences_to_id_doc(sentences):
-    payload_lines = []
     sentence_id = 0
     for sentence in sentences:
-        payload_lines += [ json.dumps({"body":sentence}) ]
-        yield sentence_id, {"body":sentence}
-        payload_lines = []
+        yield {"body":sentence, "_id":sentence_id}
         sentence_id += 1
 
 def bulk_load_elasticsearch(sentences, filename):
     index_name = filename.lower()
     print(f"loading {filename}")
-    
-    for s_id, doc in sentences_to_id_doc(sentences):
-        es.index(index=index_name, body=doc, id=s_id)
+    sentence_generator = sentences_to_id_doc(sentences)
+    bulk_sender = helpers.parallel_bulk(es, sentence_generator, index = index_name)
+    for success, info in bulk_sender:
+        if not success:
+            print('A document failed:', info)
     
 def txt_to_sentences(data):
     lines = data.split('\n')
-    i = 0
     for sentence in lines:
         if len(sentence)>0:
-            print(str(i/len(lines)))
+            # print(str(i/len(lines)))
             yield sentence
-        i+=1
-
 def txt_to_paragraphs(data):
     formated_text = [line for line in data.split("\n") if len(line) > 0]
     for line in formated_text:
@@ -62,7 +58,7 @@ def group_paragraphs(filename):
     paragraphs = None
     with open(filename, 'r') as fp:
         paragraphs = txt_to_paragraphs(fp.read())
-    return sentences
+    return paragraphs
 
 def load_sentences():
     os.chdir('sentence')
