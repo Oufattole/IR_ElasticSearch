@@ -3,7 +3,7 @@ import Levenshtein as Leven
 class Question:
     def __init__(self, prompt, answer_letter, options_dict, meta_info):
         self.prompt = prompt
-        self.answer = answer_letter
+        self.answer= answer_letter
         self.options = options_dict
         self.meta_info = meta_info
         self.checkRep()
@@ -17,7 +17,7 @@ class Question:
                 raise("answer length wrong") 
             if len(self.options[answer]) == 0:
                 raise("empty answer")           
-        if self.answer not in self.options.values():
+        if self.get_answer() not in self.options.values():
             raise("correct answer not in options")
     def json_format(self):
         return {
@@ -37,7 +37,7 @@ class Question:
         return self.prompt
 
     def get_answer(self):
-        return self.answer
+        return self.options[self.answer]
 
     def is_answer(self, answer):
         return self.get_answer() == answer
@@ -57,7 +57,7 @@ class Question:
         converts a jsonl obj (which is basically a dictionary)
         to a Question object
         """
-        return Question(obj["question"], obj["answer"], obj["options"], obj["meta_info"])
+        return Question(obj["question"], obj["answer_idx"], obj["options"], obj["meta_info"])
 
     def read_jsonl(filename):
         """
