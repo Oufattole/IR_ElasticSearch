@@ -19,16 +19,32 @@ from urllib.request import urlopen
 # on localhost.
 es = Elasticsearch()
 tot = 1
-def sentences_to_id_doc(sentences):
+def is_casestudy(sentence):
+    sentence = sentence.lower()
+    for case_study_identifier in ["year-old", "year old", " his "," him ",' he ',' she ',' her ', ' hers ']:
+        if case_study_identifier in sentence:
+            return True
+    # if "patient" in sentence:
+    #     for case_study_identifier in []:
+    #         return True
+    return False
+def sentences_to_id_doc(sentences, filename):
     sentence_id = 0
     for sentence in sentences:
-        yield {"body":sentence, "_id":sentence_id}
-        sentence_id += 1
+        safe = True
+        if is_casestudy(sentence):
+            os.chdir("removed")
+            with open("removed"+filename+".txt", 'a') as fp:
+                fp.write(sentence + "\n" + "\n")
+            os.chdir("..")
+        else:
+            yield {"body":sentence, "_id":sentence_id}
+            sentence_id += 1
 
 def bulk_load_elasticsearch(sentences, filename):
     index_name = filename.lower()
     print(f"loading {filename}")
-    sentence_generator = sentences_to_id_doc(sentences)
+    sentence_generator = sentences_to_id_doc(sentences, filename)
     bulk_sender = helpers.parallel_bulk(es, sentence_generator, index = index_name)
     for success, info in bulk_sender:
         if not success:
@@ -43,8 +59,8 @@ def txt_to_sentences(data):
 def txt_to_paragraphs(data):
     formated_text = [line for line in data.split("\n") if len(line) > 0]
     for line in formated_text:
-        line_cleaned = re.sub(r'([^a-zA-Z0-9\.])', " ", line).strip()
-        line_cleaned = re.sub(' +', ' ', line_cleaned)
+        # line_cleaned = re.sub(r'([^a-zA-Z0-9\.])', " ", line).strip()
+        line_cleaned = re.sub(' +', ' ', line)
         if len(line_cleaned) != 0:
             yield line_cleaned
 
@@ -82,7 +98,7 @@ def delete_search_indexes(filenames):
     for filename in filenames:
         es.indices.delete(index=filename.lower(), ignore=[400, 404])
 def main():
-    load_sentences()
+    load_paragraphs()
 if __name__ == "__main__":
     main()
     

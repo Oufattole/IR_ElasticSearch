@@ -19,7 +19,7 @@ class InformationRetrieval():
         self.fields = ["body"]
         self.questions = Question.read_jsonl("dev.jsonl")
         random.shuffle(self.questions)
-        self.questions = self.questions[:100]
+        # self.questions = self.questions[:100]
         print(f"Number of Questions loaded: {len(self.questions)}")
 
     def score(self, hits):
@@ -31,7 +31,7 @@ class InformationRetrieval():
         #     print(len(h.body))
         # print(f"query: {search_stringS}")
         # calculates score ### this may add bias ###
-        search_score = sum(hit.meta.score for hit in hits)
+        search_score = sum(hit.meta.score for hit in hits[:5])
         return search_score
 
     def get_hits(self, question_stem, choice_text):
@@ -52,8 +52,9 @@ class InformationRetrieval():
         options = question.get_options()
         option_hit = {}
         option_score = {}
-        self.fp.write("------------------------------Question------------------------------\n")
-        self.fp.write(prompt+"\n")
+        
+        # self.fp.write("------------------------------Question------------------------------\n")
+        # self.fp.write(prompt+"\n")
         #formatted string with all answers
         answers_write = "------------------------------Answer------------------------------\n"
         
@@ -69,14 +70,16 @@ class InformationRetrieval():
             hits = self.get_hits(prompt, option)
             for hit in hits:
                 hit_write+= f"--------------Hit {hit_number}\n"
+                hit_write+=hit.meta.index+"\n"
+                hit_write+= hit.meta.id+"\n"
                 hit_number+=1
                 hit_write += hit.body + "\n"
             option_hit[option] = hits
             score = self.score(hits)
             option_score[option] = score
             answers_write += f"Ground Truth= {option_title}: IR Confiderce= {score} : answer text= {option}\n"
-        self.fp.write(answers_write)
-        self.fp.write(hit_write)
+        # self.fp.write(answers_write)
+        # self.fp.write(hit_write)
         scores = option_score
         # get answer with highest score
         high_score = max(scores.values())
@@ -92,16 +95,16 @@ class InformationRetrieval():
         total = 0
         for question in self.questions:
             self.title +=1
-            self.fp = open(str(self.title)+".txt", "w")
+            # self.fp = open(str(self.title)+".txt", "w")
 
             search_answer = self.answer_question(question)
             correct_count += 1 if question.is_answer(search_answer) else 0
             total += 1
-            # print(correct_count/total)
+            print(correct_count/total)
         
 
 if __name__ == "__main__":
-    sentence = True
+    sentence = False
     if (sentence):
         solver = InformationRetrieval(topn=100)  # pylint: disable=invalid-name
         os.chdir('sentence_top_100')
