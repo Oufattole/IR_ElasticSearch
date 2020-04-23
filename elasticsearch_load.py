@@ -13,35 +13,88 @@ from urllib.request import urlopen
 # except ImportError:
 #     # fallback to Python 2
 #     from urllib2 import urlopen
-
+IGNORE_YEAR_OLD= [
+    'Gynecology_Novak.txt',
+    'Pediatrics_Nelson.txt',
+    'InternalMed_Harrison.txt', 
+    'Histology_Ross.txt', 
+    'Sabiston_Surgery.txt', 
+    'Cell_Biology_Alberts.txt', 
+    'Psichiatry_DSM-5.txt', 
+    'Obstentrics_Williams.txt', 
+    'Immunology_Janeway.txt', 
+    'Neurology_Adams.txt', 
+    'Pathology_Robbins.txt', 
+    'Physiology_Levy.txt'
+    ]
 # Reads text input on STDIN, splits it into sentences, gathers groups of
 # sentences and issues bulk insert commands to an Elasticsearch server running
 # on localhost.
+CHECK_YEAR_OLD_REGEX = ['Gynecology_Novak.txt', 'Anatomy_Gray.txt', 'Pharmacology_Katzung.txt', 'Biochemistry_Lippincott.txt', 'First_Aid_Step1.txt']
 es = Elasticsearch()
 tot = 1
-def is_casestudy(sentence):
+def is_casestudy(sentence,filename):
     sentence = sentence.lower()
-    for case_study_identifier in ["year-old", "year old", " his "," him ",' he ',' she ',' her ', ' hers ']:
-        if case_study_identifier in sentence:
+    # if filename not in IGNORE_YEAR_OLD:
+    #     for case_study_identifier in ["year-old", "year old"]:
+    #         if case_study_identifier in sentence:
+    #             return True
+    if filename in CHECK_YEAR_OLD_REGEX:
+        year_old_regex = re.compile("([0-9]+\syear\sold)|([0-9]+-year-old)")
+        if year_old_regex.search(sentence):
             return True
+    if "19-year-old college sophomore" in sentence:
+        return True
+    # for case_study_identifier in [" his "," him ",' he ',' she ',' her ', ' hers ']:
+    #     if case_study_identifier in sentence:
+    #         os.chdir("removed")
+    #         with open("removed"+filename+".txt", 'a') as fp:
+    #             fp.write(sentence + "\n" + "\n")
+    #         os.chdir("..")
+    #         return True
+    # if sentence.find("figure") == 0:
+    #     return True
+    # if sentence.find("fig. ")==0:
+    #     return True
+    # for case_study_identifier in :
+    #     if True:
+    #         os.chdir("removed")
+    #         with open("removed"+filename+".txt", 'a') as fp:
+    #             fp.write(sentence + "\n" + "\n")
+    #         os.chdir("..")
     # if "patient" in sentence:
     #     for case_study_identifier in []:
     #         return True
     return False
 def sentences_to_id_doc(sentences, filename):
     sentence_id = 0
+    valid = []
     for sentence in sentences:
-        safe = True
-        if is_casestudy(sentence):
+        if is_casestudy(sentence,filename):
+            pass
+        else:
+            valid.append({"body":sentence, "_id":sentence_id})
+            sentence_id += 1
+    return valid
+# def sentences_to_id_doc(sentences, filename):
+#     sentence_id = 0
+#     for doc in sentences(sentences,filename):
+#         yield doc
+#         sentence_id += 1
+def store_removed(sentences, filename):
+    # os.chdir("removed")
+    # fp = open("removed"+filename+".txt", 'w')
+    # fp.close()
+    # os.chdir("..")
+    for sentence in sentences:
+        if is_casestudy(sentence,filename):
             os.chdir("removed")
             with open("removed"+filename+".txt", 'a') as fp:
                 fp.write(sentence + "\n" + "\n")
             os.chdir("..")
-        else:
-            yield {"body":sentence, "_id":sentence_id}
-            sentence_id += 1
-
+            pass
 def bulk_load_elasticsearch(sentences, filename):
+    store_removed(sentences, filename)
     index_name = filename.lower()
     print(f"loading {filename}")
     sentence_generator = sentences_to_id_doc(sentences, filename)
@@ -49,6 +102,7 @@ def bulk_load_elasticsearch(sentences, filename):
     for success, info in bulk_sender:
         if not success:
             print('A document failed:', info)
+    
     
 def txt_to_sentences(data):
     lines = data.split('\n')
@@ -58,11 +112,13 @@ def txt_to_sentences(data):
             yield sentence
 def txt_to_paragraphs(data):
     formated_text = [line for line in data.split("\n") if len(line) > 0]
+    sentences = []
     for line in formated_text:
         # line_cleaned = re.sub(r'([^a-zA-Z0-9\.])', " ", line).strip()
         line_cleaned = re.sub(' +', ' ', line)
         if len(line_cleaned) != 0:
-            yield line_cleaned
+            sentences.append(line_cleaned)
+    return sentences
 
 def group_sentences(filename):
     sentences = None
@@ -89,7 +145,7 @@ def load_paragraphs():
     os.chdir('txt')
     files = os.listdir()
     filenames = [filename for filename in files if filename[-4:]=='.txt']
-    delete_search_indexes(filenames)
+    delete_search_indexes(filenames+["surgery_schwartz.txt"])
     for filename in filenames:
         sentences = group_paragraphs(filename)
         bulk_load_elasticsearch(sentences, filename)
@@ -100,5 +156,10 @@ def delete_search_indexes(filenames):
 def main():
     load_paragraphs()
 if __name__ == "__main__":
+    # sentence = "A 19-year-old college sophomore began to shows"
+    # year_old_regex = re.compile("([0-9]+\syear\sold)|([0-9]+-year-old)")
+    # print(re.search(year_old_regex, sentence))
+    # print(bool(year_old_regex.search(sentence)))
+    # raise
     main()
     
