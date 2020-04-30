@@ -30,7 +30,7 @@ IGNORE_YEAR_OLD= [
 # Reads text input on STDIN, splits it into sentences, gathers groups of
 # sentences and issues bulk insert commands to an Elasticsearch server running
 # on localhost.
-CHECK_YEAR_OLD_REGEX = ['Gynecology_Novak.txt', 'Anatomy_Gray.txt', 'Pharmacology_Katzung.txt', 'Biochemistry_Lippincott.txt', 'First_Aid_Step1.txt']
+CHECK_YEAR_OLD_REGEX = ['Anatomy_Gray.txt', 'Pharmacology_Katzung.txt', 'Biochemistry_Lippincott.txt', 'First_Aid_Step1.txt']
 es = Elasticsearch()
 tot = 1
 def is_casestudy(sentence,filename):
@@ -40,11 +40,25 @@ def is_casestudy(sentence,filename):
     #         if case_study_identifier in sentence:
     #             return True
     if filename in CHECK_YEAR_OLD_REGEX:
+        year_old_regex = re.compile("([0-9]+\syear\sold)|([0-9]+-year-old)|([0-9]+\smonth\sold)|([0-9]+-month-old)")
+        if year_old_regex.search(sentence):
+            return True
+    if filename == "Pharmacology_Katzung.txt":
+        for identifier in ["an elderly man", "the patient has", "the patient had", "this patient has", "this patient had"]:
+            if identifier in sentence:
+                return True
+    if filename == "InternalMed_Harrison.txt":
         year_old_regex = re.compile("([0-9]+\syear\sold)|([0-9]+-year-old)")
         if year_old_regex.search(sentence):
             return True
-    if "19-year-old college sophomore" in sentence:
-        return True
+        # if "with a history" in sentence:
+        #     return True
+    if filename == "Neurology_Adams.txt":
+        if "19-year-old college sophomore" in sentence:
+            return True 
+    if filename == "Biochemistry_Lippincott.txt":
+        if sentence.find("focused history:")==0:
+            return True
     # for case_study_identifier in [" his "," him ",' he ',' she ',' her ', ' hers ']:
     #     if case_study_identifier in sentence:
     #         os.chdir("removed")
@@ -71,7 +85,7 @@ def sentences_to_id_doc(sentences, filename):
     valid = []
     for sentence in sentences:
         if is_casestudy(sentence,filename):
-            pass
+            raise("You are loading the wrong version of the textbook files, you should load the harrison version")
         else:
             valid.append({"body":sentence, "_id":sentence_id})
             sentence_id += 1
@@ -94,7 +108,7 @@ def store_removed(sentences, filename):
             os.chdir("..")
             pass
 def bulk_load_elasticsearch(sentences, filename):
-    store_removed(sentences, filename)
+    # store_removed(sentences, filename)
     index_name = filename.lower()
     print(f"loading {filename}")
     sentence_generator = sentences_to_id_doc(sentences, filename)
