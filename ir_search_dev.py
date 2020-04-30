@@ -14,7 +14,7 @@ class InformationRetrieval():
     def __init__(self, topn = 50, dev = True):
         self.title = 0
         self.fp = None
-        self.client = Elasticsearch()
+        self.client = Elasticsearch(timeout=1000000)
         self.topn = topn
         self.fields = ["body"]
         self.question_filename = "test.jsonl"
@@ -23,7 +23,7 @@ class InformationRetrieval():
 
         self.questions = Question.read_jsonl(self.question_filename)
         random.shuffle(self.questions)
-        # self.questions = self.questions[:100]
+        self.questions = self.questions[:50]
         print(f"Number of Questions loaded: {len(self.questions)}")
 
     def score(self, hits):
@@ -52,7 +52,8 @@ class InformationRetrieval():
         i = 0
         for option in options:
             result = results[i]
-            assert(option in result.search.query)
+            # print(result.to_dict())
+            # assert(option in result.search.query)
             score = self.score(result)
             option_score[option] = score
         scores = option_score
@@ -72,16 +73,17 @@ class InformationRetrieval():
         prompt = question.get_prompt()
         options = question.get_options()
         for option in options:
-            self.search_option(prompt, option, ms)
+            ms = self.search_option(prompt, option, ms)
+        return ms
     
     def search_option(self, prompt, option, ms):
         search_string = prompt + " " + option
         # print(search_string)
         #formulate search query
         query = Q('multi_match', query=search_string, fields=self.fields)
-        search = Search(using=self.client).query(query)[:self.topn]
-        print(search.to_dict())
-        ms.add(search)
+        search = Search(using=self.client, index="*.txt").query(query)[:self.topn]
+        # print(search.to_dict())
+        return ms.add(search)
 
     def load_question_results(self, responses):
         result = []
@@ -94,16 +96,25 @@ class InformationRetrieval():
     def answer_all_questions(self):
         correct_count = 0
         total = 0
-        ms = MultiSearch(using=self.client)
+        ms = MultiSearch(using=self.client, index="*.txt")
         #Search all queries
         for question in self.questions:
-            self.make_search(question, ms)
+            ms = self.make_search(question, ms)
+        # ms = ms.add(Search().filter('term', body='aids')) works!!!
+        # ms = ms.add(Search().query('multi_match', query='aids', fields = ['body'])[:3]) works!
         responses = ms.execute()
+        i=0
+        for response in responses:
+            print(i)
+            i+=1
+        print(len(responses))
+        raise
+        
         #Load Scores
         i = 0
         for results in self.load_question_results(responses):
             question = self.questions[i]
-            search_answer = self.answer_question(question)
+            search_answer = self.answer_question(question, results)
             correct_count += 1 if question.is_answer(search_answer) else 0
             total += 1
             print(correct_count/total)
