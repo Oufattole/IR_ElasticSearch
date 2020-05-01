@@ -6,6 +6,7 @@ import os
 from question import Question
 import random
 from multiprocessing import Pool
+import time
 
 es = Elasticsearch()
 class InformationRetrieval():
@@ -22,10 +23,10 @@ class InformationRetrieval():
         self.question_filename = "test.jsonl"
         if dev:
             self.question_filename = "dev.jsonl"
-        self.processes = 4
+        self.processes = 1
         self.questions = Question.read_jsonl(self.question_filename)
-        random.shuffle(self.questions)
-        self.questions = self.questions
+        # random.shuffle(self.questions)
+        self.questions = self.questions[:40]
         print(f"Number of Questions loaded: {len(self.questions)}")
 
     def score(self, hits):
@@ -93,8 +94,10 @@ class InformationRetrieval():
         end = start+interval_length if i < self.processes-1 else length
         self.answer_all_questions(self.questions[start:end], i)
     def run(self):
+        start = time.time()
         pool = Pool(processes=self.processes)
         partitions = pool.map(self.do_answer, range(0, self.processes))
+        print(time.time()-start)
 
 if __name__ == "__main__":
     sentence = False

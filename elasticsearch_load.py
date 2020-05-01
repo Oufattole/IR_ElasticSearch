@@ -161,6 +161,7 @@ def load_paragraphs():
     files = os.listdir()
     filenames = [filename for filename in files if filename[-4:]=='.txt']
     delete_search_indexes(filenames+["surgery_schwartz.txt"])
+    # set_shards(filenames, 4)
     for filename in filenames:
         sentences = group_paragraphs(filename)
         bulk_load_elasticsearch(sentences, filename)
@@ -168,9 +169,11 @@ def load_paragraphs():
 def delete_search_indexes(filenames):
     for filename in filenames:
         es.indices.delete(index=filename.lower(), ignore=[400, 404])
-        # i = Index(filename.lower(),using=es)
-        # i.settings(number_of_shards=4, number_of_replicas=0)
-        # i.create()
+def set_shards(filenames, num_shards):
+    for filename in filenames:
+        i = Index(filename.lower(),using=es)
+        i.settings(number_of_shards=num_shards, number_of_replicas=0)
+        i.create()
 def main():
     load_paragraphs()
 if __name__ == "__main__":
