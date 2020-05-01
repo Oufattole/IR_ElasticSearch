@@ -7,6 +7,7 @@ import sys
 import os
 import requests
 from elasticsearch import Elasticsearch, helpers
+from elasticsearch_dsl import Index
 # try:
 #     # for Python 3.0 and later
 from urllib.request import urlopen
@@ -167,6 +168,9 @@ def load_paragraphs():
 def delete_search_indexes(filenames):
     for filename in filenames:
         es.indices.delete(index=filename.lower(), ignore=[400, 404])
+        # i = Index(filename.lower(),using=es)
+        # i.settings(number_of_shards=4, number_of_replicas=0)
+        # i.create()
 def main():
     load_paragraphs()
 if __name__ == "__main__":

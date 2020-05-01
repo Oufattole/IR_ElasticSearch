@@ -1,10 +1,13 @@
 """text search solver"""
 
-from elasticsearch import Elasticsearch
+from elasticsearch import Elasticsearch, helpers
 from elasticsearch_dsl import Q, Search, MultiSearch
 import os
 from question import Question
 import random
+from multiprocessing import Pool
+
+es = Elasticsearch()
 class InformationRetrieval():
     """
     runs a query against elasticsearch and sums up the top `topn` scores. by default,
@@ -14,16 +17,15 @@ class InformationRetrieval():
     def __init__(self, topn = 50, dev = True):
         self.title = 0
         self.fp = None
-        self.client = Elasticsearch(timeout=1000000)
         self.topn = topn
         self.fields = ["body"]
         self.question_filename = "test.jsonl"
         if dev:
             self.question_filename = "dev.jsonl"
-
+        self.processes = 4
         self.questions = Question.read_jsonl(self.question_filename)
         random.shuffle(self.questions)
-        self.questions = self.questions[:50]
+        self.questions = self.questions
         print(f"Number of Questions loaded: {len(self.questions)}")
 
     def score(self, hits):
@@ -31,16 +33,7 @@ class InformationRetrieval():
         search_score = sum(hit.meta.score for hit in hits)
         return search_score
 
-    def get_hits(self, question_stem, choice_text):
-        search_string = question_stem + " " + choice_text
-        #formulate search query
-        query = Q('multi_match', query=search_string, fields=self.fields)
-        search = Search(using=self.client).query(query)[:self.topn]
-        #execute search
-        score = self.score(search.execute())
-        return score
-
-    def answer_question(self, question, results): 
+    def answer_question(self, question): 
         """
         given a Question object
         returns answer string with the highest score
@@ -51,8 +44,7 @@ class InformationRetrieval():
         # get search scores for each answer option
         i = 0
         for option in options:
-            result = results[i]
-            # print(result.to_dict())
+            result = self.search_option(prompt, option)
             # assert(option in result.search.query)
             score = self.score(result)
             option_score[option] = score
@@ -65,25 +57,14 @@ class InformationRetrieval():
                 search_answer = option
         assert(not search_answer is None)
         return search_answer
-
-    def make_search(self, question, ms): 
-        """
-        given a Question object adds search query to ms
-        """
-        prompt = question.get_prompt()
-        options = question.get_options()
-        for option in options:
-            ms = self.search_option(prompt, option, ms)
-        return ms
     
-    def search_option(self, prompt, option, ms):
+    def search_option(self, prompt, option):
         search_string = prompt + " " + option
-        # print(search_string)
         #formulate search query
         query = Q('multi_match', query=search_string, fields=self.fields)
-        search = Search(using=self.client, index="*.txt").query(query)[:self.topn]
+        search = Search(using=es, index="*.txt").query(query).source(False)[:self.topn]
         # print(search.to_dict())
-        return ms.add(search)
+        return search.execute()
 
     def load_question_results(self, responses):
         result = []
@@ -93,33 +74,27 @@ class InformationRetrieval():
                 yield result
                 result = []
 
-    def answer_all_questions(self):
+    def answer_all_questions(self,questions,i):
         correct_count = 0
         total = 0
-        ms = MultiSearch(using=self.client, index="*.txt")
+        ms = MultiSearch(using=es, index="*.txt")
         #Search all queries
-        for question in self.questions:
-            ms = self.make_search(question, ms)
-        # ms = ms.add(Search().filter('term', body='aids')) works!!!
-        # ms = ms.add(Search().query('multi_match', query='aids', fields = ['body'])[:3]) works!
-        responses = ms.execute()
-        i=0
-        for response in responses:
-            print(i)
-            i+=1
-        print(len(responses))
-        raise
-        
-        #Load Scores
-        i = 0
-        for results in self.load_question_results(responses):
-            question = self.questions[i]
-            search_answer = self.answer_question(question, results)
+        for question in questions:
+            search_answer = self.answer_question(question)
             correct_count += 1 if question.is_answer(search_answer) else 0
             total += 1
-            print(correct_count/total)
-        print(f"{self.question_filename}: {correct_count/total}")
-        
+            print(correct_count)
+            print(f"process:{i}:correct:{correct_count}:total:{total}")
+
+    def do_answer(self, i):
+        length = len(self.questions)
+        interval_length = length//self.processes
+        start = interval_length*i 
+        end = start+interval_length if i < self.processes-1 else length
+        self.answer_all_questions(self.questions[start:end], i)
+    def run(self):
+        pool = Pool(processes=self.processes)
+        partitions = pool.map(self.do_answer, range(0, self.processes))
 
 if __name__ == "__main__":
     sentence = False
@@ -131,7 +106,7 @@ if __name__ == "__main__":
     else:
         solver = InformationRetrieval(topn=30, dev = True)  # pylint: disable=invalid-name
         os.chdir('paragraph_top_30')
-        solver.answer_all_questions()
+        solver.run()
         os.chdir("..")
         # solver = InformationRetrieval(topn=30,dev = False)  # pylint: disable=invalid-name
         # os.chdir('paragraph_top_30')
