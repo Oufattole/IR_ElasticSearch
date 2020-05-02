@@ -88,7 +88,7 @@ def sentences_to_id_doc(sentences, filename):
         if is_casestudy(sentence,filename):
             raise("You are loading the wrong version of the textbook files, you should load the harrison version")
         else:
-            valid.append({"body":sentence, "_id":sentence_id, "book":filename})
+            valid.append({"body":sentence, "sentence_id":sentence_id, "book":filename})
             sentence_id += 1
     return valid
 # def sentences_to_id_doc(sentences, filename):
@@ -171,7 +171,7 @@ def delete_search_indexes(filenames):
         es.indices.delete(index=filename.lower(), ignore=[400, 404])
 def set_shards(num_shards):
     i = Index("corpus",using=es)
-    i.settings(number_of_shards=4, number_of_replicas=0)
+    i.settings(number_of_shards=num_shards, number_of_replicas=0)
     i.create()
 def main():
     load_paragraphs()

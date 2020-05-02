@@ -21,12 +21,13 @@ class InformationRetrieval():
         self.topn = topn
         self.fields = ["body"]
         self.question_filename = "test.jsonl"
+        self.dev = dev
         if dev:
             self.question_filename = "dev.jsonl"
         self.processes = 8
         self.questions = Question.read_jsonl(self.question_filename)
         # random.shuffle(self.questions)
-        self.questions = self.questions[:40]
+        # self.questions = self.questions[:40]
         print(f"Number of Questions loaded: {len(self.questions)}")
 
     def score(self, hits):
@@ -78,26 +79,35 @@ class InformationRetrieval():
     def answer_all_questions(self,questions,i):
         correct_count = 0
         total = 0
-        ms = MultiSearch(using=es, index="corpus")
+        # ms = MultiSearch(using=es, index="corpus")
         #Search all queries
         for question in questions:
             search_answer = self.answer_question(question)
             correct_count += 1 if question.is_answer(search_answer) else 0
             total += 1
-            print(correct_count)
-            print(f"process:{i}:correct:{correct_count}:total:{total}")
+            # print(correct_count)
+        # print(f"process:{i}:correct:{correct_count}:total:{total}")
+        return correct_count
 
     def do_answer(self, i):
         length = len(self.questions)
         interval_length = length//self.processes
         start = interval_length*i 
         end = start+interval_length if i < self.processes-1 else length
-        self.answer_all_questions(self.questions[start:end], i)
+        return self.answer_all_questions(self.questions[start:end], i)
     def run(self):
         start = time.time()
         pool = Pool(processes=self.processes)
-        partitions = pool.map(self.do_answer, range(0, self.processes))
+        results = pool.map(self.do_answer, range(0, self.processes))
+        set_type = "dev set" if self.dev else "test set"
+        print(f"{set_type}; top: {self.topn}; Accuracy: {sum(results)/len(self.questions)}")
         print(time.time()-start)
+
+def paragraph(topn, dev):
+    solver = InformationRetrieval(topn=topn, dev = dev)  # pylint: disable=invalid-name
+    os.chdir('paragraph_top_30')
+    solver.run()
+    os.chdir("..")
 
 if __name__ == "__main__":
     sentence = False
@@ -107,10 +117,16 @@ if __name__ == "__main__":
         solver.answer_all_questions()
         os.chdir("..")
     else:
-        solver = InformationRetrieval(topn=30, dev = True)  # pylint: disable=invalid-name
-        os.chdir('paragraph_top_30')
-        solver.run()
-        os.chdir("..")
+        dev = True
+        test = False
+        paragraph(1,dev)
+        paragraph(1,test)
+        paragraph(5,dev)
+        paragraph(5,test)
+        paragraph(10,dev)
+        paragraph(10,test)
+        paragraph(30,dev)
+        paragraph(30,test)
         # solver = InformationRetrieval(topn=30,dev = False)  # pylint: disable=invalid-name
         # os.chdir('paragraph_top_30')
         # solver.answer_all_questions()
