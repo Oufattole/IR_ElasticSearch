@@ -23,7 +23,7 @@ class InformationRetrieval():
         self.question_filename = "test.jsonl"
         if dev:
             self.question_filename = "dev.jsonl"
-        self.processes = 1
+        self.processes = 8
         self.questions = Question.read_jsonl(self.question_filename)
         # random.shuffle(self.questions)
         self.questions = self.questions[:40]
@@ -63,7 +63,7 @@ class InformationRetrieval():
         search_string = prompt + " " + option
         #formulate search query
         query = Q('multi_match', query=search_string, fields=self.fields)
-        search = Search(using=es, index="*.txt").query(query).source(False)[:self.topn]
+        search = Search(using=es, index="corpus").query(query).source(False)[:self.topn]
         # print(search.to_dict())
         return search.execute()
 
@@ -78,7 +78,7 @@ class InformationRetrieval():
     def answer_all_questions(self,questions,i):
         correct_count = 0
         total = 0
-        ms = MultiSearch(using=es, index="*.txt")
+        ms = MultiSearch(using=es, index="corpus")
         #Search all queries
         for question in questions:
             search_answer = self.answer_question(question)

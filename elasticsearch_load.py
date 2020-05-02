@@ -88,7 +88,7 @@ def sentences_to_id_doc(sentences, filename):
         if is_casestudy(sentence,filename):
             raise("You are loading the wrong version of the textbook files, you should load the harrison version")
         else:
-            valid.append({"body":sentence, "_id":sentence_id})
+            valid.append({"body":sentence, "_id":sentence_id, "book":filename})
             sentence_id += 1
     return valid
 # def sentences_to_id_doc(sentences, filename):
@@ -113,7 +113,7 @@ def bulk_load_elasticsearch(sentences, filename):
     index_name = filename.lower()
     print(f"loading {filename}")
     sentence_generator = sentences_to_id_doc(sentences, filename)
-    bulk_sender = helpers.parallel_bulk(es, sentence_generator, index = index_name)
+    bulk_sender = helpers.parallel_bulk(es, sentence_generator, index = "corpus")
     for success, info in bulk_sender:
         if not success:
             print('A document failed:', info)
@@ -160,8 +160,8 @@ def load_paragraphs():
     os.chdir('txt')
     files = os.listdir()
     filenames = [filename for filename in files if filename[-4:]=='.txt']
-    delete_search_indexes(filenames+["surgery_schwartz.txt"])
-    # set_shards(filenames, 4)
+    delete_search_indexes(filenames+["surgery_schwartz.txt","corpus"])
+    # set_shards(8)
     for filename in filenames:
         sentences = group_paragraphs(filename)
         bulk_load_elasticsearch(sentences, filename)
@@ -169,11 +169,10 @@ def load_paragraphs():
 def delete_search_indexes(filenames):
     for filename in filenames:
         es.indices.delete(index=filename.lower(), ignore=[400, 404])
-def set_shards(filenames, num_shards):
-    for filename in filenames:
-        i = Index(filename.lower(),using=es)
-        i.settings(number_of_shards=num_shards, number_of_replicas=0)
-        i.create()
+def set_shards(num_shards):
+    i = Index("corpus",using=es)
+    i.settings(number_of_shards=4, number_of_replicas=0)
+    i.create()
 def main():
     load_paragraphs()
 if __name__ == "__main__":
