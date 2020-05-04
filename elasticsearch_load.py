@@ -167,8 +167,7 @@ def load_paragraphs():
         bulk_load_elasticsearch(sentences, filename)
     os.chdir('..')
 def delete_search_indexes(filenames):
-    for filename in filenames:
-        es.indices.delete(index=filename.lower(), ignore=[400, 404])
+    es.indices.delete(index=["*.txt","corpus"], ignore=[400, 404])
 def set_shards(num_shards):
     i = Index("corpus",using=es)
     i.settings(number_of_shards=num_shards, number_of_replicas=0)
