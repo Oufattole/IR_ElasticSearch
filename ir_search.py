@@ -25,7 +25,7 @@ class InformationRetrieval():
         self.data_name = data_name
         self.output=output
         if output:
-            self.jsonl_filename = "output"+data_name+".jsonl"
+            self.jsonl_filename = "output_"+data_name+".jsonl"
             with open(self.jsonl_filename, "w"):
                 pass #empty file contents
         self.processes = 8 if not output else 1
