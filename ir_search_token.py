@@ -85,7 +85,7 @@ class InformationRetrieval():
         search_string = question_nouns + option_mult
         #formulate search query
         query = Q('match', body=search_string)
-        search = Search(using=es, index="corpus").query(query).source(False)[:self.topn]
+        search = Search(using=es, index="corpus").query(query)[:self.topn]
         # print(search.to_dict())
         return search.execute()
 
