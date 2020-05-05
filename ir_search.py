@@ -7,6 +7,8 @@ from question import Question
 import random
 from multiprocessing import Pool
 import time
+import nltk
+from nltk import word_tokenize
 import jsonlines
 
 es = Elasticsearch()
@@ -16,8 +18,9 @@ class InformationRetrieval():
     `topn` is 1, which means it just returns the top score, which is the same behavior as the
     scala solver
     """
-    def __init__(self, topn = 50, data_name="dev", output=False):
+    def __init__(self, topn = 50, data_name="dev", output=False, tokenize=False):
         self.title = 0
+        self.tokenize=tokenize
         self.fp = None
         self.topn = topn
         self.fields = ["body"]
@@ -25,7 +28,8 @@ class InformationRetrieval():
         self.data_name = data_name
         self.output=output
         if output:
-            self.jsonl_filename = "output_"+data_name+".jsonl"
+            tokenize_string = "tokenize_" if tokenize else ""
+            self.jsonl_filename = "output_"+ tokenize_string +data_name+".jsonl"
             with open(self.jsonl_filename, "w"):
                 pass #empty file contents
         self.processes = 8 if not output else 1
@@ -76,8 +80,13 @@ class InformationRetrieval():
         return search_answer
     
     def search_option(self, prompt, option):
-        option_mult = (" " + option)
-        search_string = prompt + option_mult
+        search_string = prompt + " " +option
+        if self.tokenize:
+            pos_tags_list = nltk.pos_tag(word_tokenize(prompt))
+            question_nouns = " ".join([word[0] for word in pos_tags_list
+            if word[1] in ["NN", "JJ","NNS","IN"]])
+            option_mult = (" " + option)
+            search_string = question_nouns + option_mult
         #formulate search query
         query = Q('match', body=search_string)
         search = Search(using=es, index="corpus").query(query)[:self.topn]
@@ -112,17 +121,23 @@ class InformationRetrieval():
         start = time.time()
         pool = Pool(processes=self.processes)
         results = pool.map(self.do_answer, range(0, self.processes))
-        print(f"{self.data_name}; top: {self.topn}; Accuracy: {sum(results)/len(self.questions)}")
+        tokenize = " tokenize" if self.tokenize else ""
+        print(f"{self.data_name + tokenize}; top: {self.topn}; Accuracy: {sum(results)/len(self.questions)}")
         print(time.time()-start)
 
-def paragraph(topn, data_name,output):
-    solver = InformationRetrieval(topn=topn, data_name = data_name, output=output)  # pylint: disable=invalid-name
+def paragraph(topn, data_name,output,tokenize):
+    solver = InformationRetrieval(topn=topn, data_name = data_name, output=output,tokenize=tokenize)  # pylint: disable=invalid-name
     solver.run()
 
 if __name__ == "__main__":
     dev = True
     test = False
     output = True
-    paragraph(30,data_name="dev",output=output)
-    paragraph(30,data_name="test", output=output)
-    paragraph(30,data_name="train", output=output)
+    tokenize=True
+    paragraph(30,data_name="dev",output=output, tokenize=tokenize)
+    paragraph(30,data_name="test", output=output, tokenize=tokenize)
+    paragraph(30,data_name="train", output=output, tokenize=tokenize)
+    tokenize=False
+    paragraph(30,data_name="dev",output=output, tokenize=tokenize)
+    paragraph(30,data_name="test", output=output, tokenize=tokenize)
+    paragraph(30,data_name="train", output=output, tokenize=tokenize)
