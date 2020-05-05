@@ -32,7 +32,8 @@ class Question:
         we can use this list for ir search
         """
         return list(self.options.values())
-
+    def get_answer_index(self):
+        return list(self.options.values()).index(self.get_answer())
     def get_prompt(self):
         return self.prompt
 

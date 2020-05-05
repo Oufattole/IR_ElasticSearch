@@ -7,7 +7,8 @@ from question import Question
 import random
 from multiprocessing import Pool
 import time
-
+import nltk
+from nltk import word_tokenize
 es = Elasticsearch()
 class InformationRetrieval():
     """
@@ -47,7 +48,6 @@ class InformationRetrieval():
         i = 0
         for option in options:
             result = self.search_option(prompt, option)
-            # assert(option in result.search.query)
             score = self.score(result)
             option_score[option] = score
         scores = option_score
@@ -61,9 +61,13 @@ class InformationRetrieval():
         return search_answer
     
     def search_option(self, prompt, option):
-        search_string = prompt + " " + option
+        pos_tags_list = nltk.pos_tag(word_tokenize(prompt))
+        question_nouns = " ".join([word[0] for word in pos_tags_list
+        if word[1] in ["NN", "JJ","NNS","IN"]])
+        option_mult = (" " + option)
+        search_string = question_nouns + option_mult
         #formulate search query
-        query = Q('multi_match', query=search_string, fields=self.fields)
+        query = Q('match', body=search_string)
         search = Search(using=es, index="corpus").query(query).source(False)[:self.topn]
         # print(search.to_dict())
         return search.execute()
@@ -85,8 +89,6 @@ class InformationRetrieval():
             search_answer = self.answer_question(question)
             correct_count += 1 if question.is_answer(search_answer) else 0
             total += 1
-            # print(correct_count)
-        # print(f"process:{i}:correct:{correct_count}:total:{total}")
         return correct_count
 
     def do_answer(self, i):
@@ -119,15 +121,5 @@ if __name__ == "__main__":
     else:
         dev = True
         test = False
-        paragraph(1,dev)
-        paragraph(1,test)
-        paragraph(5,dev)
-        paragraph(5,test)
-        paragraph(10,dev)
-        paragraph(10,test)
         paragraph(30,dev)
         paragraph(30,test)
-        # solver = InformationRetrieval(topn=30,dev = False)  # pylint: disable=invalid-name
-        # os.chdir('paragraph_top_30')
-        # solver.answer_all_questions()
-        # os.chdir("..")
