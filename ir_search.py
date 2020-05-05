@@ -26,7 +26,7 @@ class InformationRetrieval():
         self.output=output
         if output:
             self.jsonl_filename = "output_dev.jsonl" if dev else "output_test.jsonl"
-            with open(self.jsonl.filename, "w"):
+            with open(self.jsonl_filename, "w"):
                 pass #empty file contents
         if dev:
             self.question_filename = "dev.jsonl"
@@ -72,10 +72,9 @@ class InformationRetrieval():
         tmp['question'] = question.get_prompt()
         tmp['answer_idx'] = question.get_answer_index()
         if self.output:
-            with open("output.jsonl", "a") as fp:
+            with open(self.jsonl_filename, "a") as fp:
                 with jsonlines.Writer(fp) as writer:
-                    writer.write(question.json_format())
-            ofile_jsonl.write(tmp)
+                    writer.write(tmp)
         return search_answer
     
     def search_option(self, prompt, option):
@@ -119,12 +118,12 @@ class InformationRetrieval():
         print(time.time()-start)
 
 def paragraph(topn, dev,output):
-    solver = InformationRetrieval(topn=topn, dev = dev)  # pylint: disable=invalid-name
+    solver = InformationRetrieval(topn=topn, dev = dev, output=output)  # pylint: disable=invalid-name
     solver.run()
 
 if __name__ == "__main__":
     dev = True
     test = False
-    out = True
-    paragraph(30,dev=dev,output=out)
-    paragraph(30,dev=test, output=out)
+    output = True
+    paragraph(30,dev=dev,output=output)
+    paragraph(30,dev=test, output=output)
