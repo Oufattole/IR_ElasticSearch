@@ -125,4 +125,4 @@ if __name__ == "__main__":
     output = True
     paragraph(30,data_name="dev",output=output)
     paragraph(30,data_name="test", output=output)
-    paragraph(30,data_name="training", output=output)
+    paragraph(30,data_name="train", output=output)
