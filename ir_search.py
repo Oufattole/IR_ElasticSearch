@@ -16,20 +16,18 @@ class InformationRetrieval():
     `topn` is 1, which means it just returns the top score, which is the same behavior as the
     scala solver
     """
-    def __init__(self, topn = 50, dev = True, output=False):
+    def __init__(self, topn = 50, data_name="dev", output=False):
         self.title = 0
         self.fp = None
         self.topn = topn
         self.fields = ["body"]
-        self.question_filename = "test.jsonl"
-        self.dev = dev
+        self.question_filename = data_name+".jsonl"
+        self.data_name = data_name
         self.output=output
         if output:
-            self.jsonl_filename = "output_dev.jsonl" if dev else "output_test.jsonl"
+            self.jsonl_filename = "output"+data_name+".jsonl"
             with open(self.jsonl_filename, "w"):
                 pass #empty file contents
-        if dev:
-            self.question_filename = "dev.jsonl"
         self.processes = 8 if not output else 1
         self.questions = Question.read_jsonl(self.question_filename)
         # random.shuffle(self.questions)
@@ -78,11 +76,12 @@ class InformationRetrieval():
         return search_answer
     
     def search_option(self, prompt, option):
-        search_string = prompt + " " + option
-        search_string = search_string
+        option_mult = (" " + option)
+        search_string = prompt + option_mult
         #formulate search query
         query = Q('match', body=search_string)
-        search = Search(using=es, index="corpus").query(query)[:self.topn]
+        search = Search(using=es, index="corpus").query(query).source(False)[:self.topn]
+        # print(search.to_dict())
         return search.execute()
 
     def load_question_results(self, responses):
@@ -113,17 +112,17 @@ class InformationRetrieval():
         start = time.time()
         pool = Pool(processes=self.processes)
         results = pool.map(self.do_answer, range(0, self.processes))
-        set_type = "dev set" if self.dev else "test set"
-        print(f"{set_type}; top: {self.topn}; Accuracy: {sum(results)/len(self.questions)}")
+        print(f"{self.data_name}; top: {self.topn}; Accuracy: {sum(results)/len(self.questions)}")
         print(time.time()-start)
 
-def paragraph(topn, dev,output):
-    solver = InformationRetrieval(topn=topn, dev = dev, output=output)  # pylint: disable=invalid-name
+def paragraph(topn, data_name,output):
+    solver = InformationRetrieval(topn=topn, data_name = data_name, output=output)  # pylint: disable=invalid-name
     solver.run()
 
 if __name__ == "__main__":
     dev = True
     test = False
     output = True
-    paragraph(30,dev=dev,output=output)
-    paragraph(30,dev=test, output=output)
+    paragraph(30,data_name="dev",output=output)
+    paragraph(30,data_name="test", output=output)
+    paragraph(30,data_name="training", output=output)
